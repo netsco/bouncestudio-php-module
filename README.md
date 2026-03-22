@@ -1,8 +1,11 @@
-# PHP 7/8 Module for Boogie Tools - BounceStudio 
+# PHP Module for Boogie Tools - BounceStudio
 
 BounceStudio by Boogie Tools is a paid for library for handling your bounce emails - see http://www.boogietools.com/ for more details.
 
-PHP module code provided by Mizmoz under the MIT license - https://www.mizmoz.com/
+
+## Pre-built Binaries
+
+Pre-built `.so` files for PHP 8.4 and 8.5 on Debian and Ubuntu are available from [GitHub Releases](../../releases).
 
 ## Installing BounceStudio
 
@@ -19,22 +22,13 @@ First we need to make sure the BounceStudio library is installed and ready to us
 In the src/ directory run:
 
 ```
-# For PHP 7.4
-phpize7.4
-
-# For PHP 8.0
-phpize8.0
-
-# For PHP 8.1
-phpize8.1
-
+phpize
 ./configure --enable-bouncestudio
-
 make CFLAGS="-lBounceStudio64 $CFLAGS"
-
 make install
-
 ```
+
+If your system has multiple PHP versions, use the version-specific phpize (e.g. `phpize8.4`, `phpize8.5`).
 
 Find your PHP conf directory
 

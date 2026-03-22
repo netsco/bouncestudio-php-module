@@ -35,10 +35,7 @@ PHP_METHOD(BounceStudio, __construct)
     zend_update_property_long(bouncestudio_ce, obj, "code", sizeof("code") - 1, code);
     zend_update_property_string(bouncestudio_ce, obj, "email", sizeof("email") - 1, email->val);
 
-    // clean up
-    zend_string_free(license);
-    zend_string_free(message);
-    zend_string_free(ignoreAddresses);
+    // clean up locally allocated string
     zend_string_free(email);
 }
 /* }}} */
@@ -140,7 +137,6 @@ PHP_METHOD(BounceStudio, getHeader)
     bsGetCustomHeader(message->val, &header, name->val);
 
     zend_string_free(message);
-    zend_string_free(name);
 
     RETURN_STRING(header);
 }
@@ -167,7 +163,6 @@ PHP_METHOD(BounceStudio, getOriginalHeader)
     bsGetOrigCustomHeader(message->val, &header, name->val);
 
     zend_string_free(message);
-    zend_string_free(name);
 
     RETURN_STRING(header);
 }

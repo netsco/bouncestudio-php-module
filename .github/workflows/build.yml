@@ -1,0 +1,99 @@
+name: Build Extension
+
+on:
+  push:
+    branches: [master]
+    tags: ['20*']
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ${{ matrix.os }}
+    strategy:
+      matrix:
+        php: ['8.4', '8.5']
+        os: ['debian:latest', 'ubuntu:latest']
+
+    steps:
+      - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y \
+            ca-certificates \
+            curl \
+            gnupg2
+          . /etc/os-release
+          if [ "$ID" = "ubuntu" ]; then
+            apt-get install -y software-properties-common
+            add-apt-repository -y ppa:ondrej/php
+          else
+            curl -fsSL https://packages.sury.org/php/apt.gpg | gpg --dearmor -o /usr/share/keyrings/sury-php.gpg
+            echo "deb [signed-by=/usr/share/keyrings/sury-php.gpg] https://packages.sury.org/php/ ${VERSION_CODENAME} main" > /etc/apt/sources.list.d/sury-php.list
+          fi
+          apt-get update
+          apt-get install -y \
+            php${{ matrix.php }}-dev \
+            build-essential \
+            autoconf \
+            git
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build extension
+        working-directory: src
+        run: |
+          # Use the CI stub header so we can compile without the proprietary library
+          cp ../ci/BounceStudio.h /usr/local/include/BounceStudio.h
+
+          # Create a stub shared library so the linker resolves -lBounceStudio64
+          # The real library is only needed at runtime
+          echo 'void bsBounceStudio_init(void){} int bsBounceCheck(const char*m,char**b,const char*i,const char*l){return 0;}' | \
+            cc -shared -x c - -o /usr/local/lib/libBounceStudio64.so
+          ldconfig
+
+          phpize${{ matrix.php }}
+          ./configure --enable-bouncestudio --with-php-config=php-config${{ matrix.php }}
+          make CFLAGS="-lBounceStudio64 $CFLAGS"
+
+      - name: Determine OS name
+        id: os-name
+        run: |
+          . /etc/os-release
+          echo "name=${ID}-${VERSION_CODENAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bouncestudio-php${{ matrix.php }}-${{ steps.os-name.outputs.name }}
+          path: src/modules/bouncestudio.so
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/20')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Rename artifacts
+        run: |
+          for dir in artifacts/bouncestudio-*; do
+            name=$(basename "$dir")
+            mv "$dir/bouncestudio.so" "artifacts/${name}.so"
+          done
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.so
+          generate_release_notes: true
